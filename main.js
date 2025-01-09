@@ -5,7 +5,6 @@ import fs from "fs";
 import crypto from "crypto";
 
 const loopCount = Number(process.env.LOOP_COUNT) || 3;
-const NO_NUMBER_VALUE = -1;
 
 /**
  *
@@ -13,7 +12,7 @@ const NO_NUMBER_VALUE = -1;
  */
 function getRandomNumber(randomList) {
   if (randomList.length === 0) {
-    return NO_NUMBER_VALUE;
+    throw new Error("no number");
   }
   const randomIndex = Math.floor(Math.random() * randomList.length);
   return randomList.splice(randomIndex, 1)[0];
@@ -41,9 +40,12 @@ function generateQuestion(uuid) {
   }
 
   const { firstNumbers, secondNumbers } = target;
-  const operation = `${getRandomNumber(firstNumbers)}+${getRandomNumber(
-    secondNumbers
-  )}`;
+
+  const isNoNumber = () => !firstNumbers.length || !target.secondNumbers.length;
+
+  const operation = isNoNumber()
+    ? "success"
+    : `${getRandomNumber(firstNumbers)}+${getRandomNumber(secondNumbers)}`;
 
   target.operation = operation;
   target.operationTime = Date.now();
@@ -61,6 +63,27 @@ function pushHistory(uuid, message) {
   }
 
   target.history.push(message);
+}
+
+function addLog(uuid) {
+  const target = userMap[uuid];
+
+  if (!target) {
+    return;
+  }
+
+  if (!target?.logs) {
+    target.logs = [];
+  }
+
+  const doneTime = Date.now();
+
+  target.logs.push({
+    operation: target.operation,
+    operationTime: target.operationTime,
+    doneTime,
+    diffTime: doneTime - target.operationTime,
+  });
 }
 
 const userMap = {};
@@ -112,11 +135,12 @@ const server = http.createServer((req, res) => {
       const message =
         `${operation}=${reqJson.value}: ` +
         (isCorrect ? "Correct answer." : "Wrong answer.") +
-        "  " +
-        new Intl.DateTimeFormat().format(
-          userMap?.[cookieObj.uuid]?.operationTime
-        );
+        ` ${new Intl.DateTimeFormat().format(
+          userMap[cookieObj.uuid].operationTime
+        )}`;
       const status = isCorrect ? "ok" : "no";
+
+      addLog(cookieObj.uuid);
 
       if (isCorrect) {
         generateQuestion(cookieObj.uuid);

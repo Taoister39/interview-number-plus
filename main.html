@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Document</title>
+  </head>
+  <body>
+    <div id="app">
+      <span>Question: <span id="show_question"></span> </span>
+      <input placeholder="input answer." id="input" />
+      <button id="submit">Submit</button>
+      <ul id="history"></ul>
+    </div>
+
+    <script>
+      const showQuestion = document.querySelector("#show_question");
+      const input = document.querySelector("#input");
+      const submitButton = document.querySelector("#submit");
+      const history = document.querySelector("#history");
+
+      function generateOneHistory(message) {
+        const li = document.createElement("li");
+        li.textContent = message;
+
+        return li;
+      }
+
+      fetch("/api/question")
+        .then((res) => res.json())
+        .then((data) => {
+          showQuestion.textContent = data.operation;
+
+          data.history?.forEach((item) => {
+            const li = generateOneHistory(item);
+            history.append(li);
+          });
+        });
+
+      submitButton.addEventListener("click", () => {
+        const value = input.value;
+
+        fetch("/api/question", {
+          method: "POST",
+          body: JSON.stringify({ value }),
+        })
+          .then((res) => res.json())
+          .then((data) => {
+            const li = generateOneHistory(data.message);
+            history.append(li);
+
+            if (data?.status === "ok") {
+              showQuestion.textContent = data?.nextQuestion;
+            }
+          });
+      });
+    </script>
+  </body>
+</html>
